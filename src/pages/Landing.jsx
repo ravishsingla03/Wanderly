@@ -6,23 +6,17 @@ import TripGrid from '../components/trips/TripGrid'
 import StatBar from '../components/ui/StatBar'
 import useFilterStore from '../store/filterStore'
 import { fetchTrips } from '../lib/queries'
-import { SEED_TRIPS } from '../lib/seedData'
-import { isSupabaseConfigured } from '../lib/supabase'
 
 export default function Landing({ onAuthOpen }) {
   const { activeFilter, searchQuery, setSearchQuery } = useFilterStore()
   const [inputValue, setInputValue] = useState('')
 
-  const { data: trips, isLoading, error } = useQuery({
+  const { data: trips = [], isLoading, error } = useQuery({
     queryKey: ['trips', activeFilter, searchQuery],
     queryFn: () => fetchTrips({ filter: activeFilter, search: searchQuery, limit: 6 }),
-    enabled: isSupabaseConfigured,
-    retry: false,
+    retry: 1,
   })
 
-  // Always show seed trips when Supabase isn't configured or returns empty
-  const displayTrips = (trips && trips.length > 0) ? trips : SEED_TRIPS
-  const showLoading = isLoading && isSupabaseConfigured
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -116,9 +110,9 @@ export default function Landing({ onAuthOpen }) {
       {/* Trip Grid */}
       <section className="px-4 pb-16 max-w-6xl mx-auto">
         <TripGrid
-          trips={displayTrips}
-          isLoading={showLoading}
-          error={null}
+          trips={trips}
+          isLoading={isLoading}
+          error={error}
           onAuthOpen={() => onAuthOpen?.('signup')}
         />
       </section>

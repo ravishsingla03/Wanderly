@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { supabase, isSupabaseConfigured } from './lib/supabase'
+import { supabase } from './lib/supabase'
 import useAuthStore from './store/authStore'
 import Navbar from './components/layout/Navbar'
 import Footer from './components/layout/Footer'
@@ -21,11 +21,6 @@ export default function App() {
   const closeAuth = () => setAuthModal((s) => ({ ...s, open: false }))
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setLoading(false)
-      return
-    }
-
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user)
@@ -38,8 +33,17 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         setUser(session.user)
-        const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
-        setProfile(data)
+        // Fetch profile; create one if it doesn't exist yet (e.g. after email confirmation)
+        let { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+        if (!profile) {
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({ id: session.user.id, name: session.user.email?.split('@')[0], trips_count: 0 })
+            .select()
+            .single()
+          profile = newProfile
+        }
+        setProfile(profile)
       } else {
         setUser(null)
         setProfile(null)

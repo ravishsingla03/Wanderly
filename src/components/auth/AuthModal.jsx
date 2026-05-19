@@ -7,6 +7,7 @@ import useAuthStore from '../../store/authStore'
 export default function AuthModal({ isOpen, onClose, defaultTab = 'signin' }) {
   const [tab, setTab] = useState(defaultTab)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const { setUser, setProfile } = useAuthStore()
 
@@ -20,6 +21,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'signin' }) {
   const switchTab = (t) => {
     setTab(t)
     setError('')
+    setSuccess('')
     reset()
   }
 
@@ -38,20 +40,22 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'signin' }) {
   const onSignUp = async ({ name, email, password }) => {
     setLoading(true)
     setError('')
+    setSuccess('')
     const { data, error: err } = await supabase.auth.signUp({ email, password })
     setLoading(false)
     if (err) { setError(err.message); return }
 
-    if (data.user) {
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        name,
-        trips_count: 0,
-      })
+    // data.session is null when email confirmation is required
+    if (data.session) {
+      // Email confirmation disabled — user is logged in immediately
+      await supabase.from('profiles').upsert({ id: data.user.id, name, trips_count: 0 })
       setUser(data.user)
       setProfile({ id: data.user.id, name, trips_count: 0 })
+      onClose()
+    } else {
+      // Email confirmation enabled — show message, don't close yet
+      setSuccess(`Check your inbox at ${email} and click the confirmation link, then sign in.`)
     }
-    onClose()
   }
 
   return (
@@ -164,13 +168,20 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'signin' }) {
                     {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password.message}</p>}
                   </div>
                   {error && <p className="text-red-400 text-xs">{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 rounded-lg bg-[#1D9E75] text-white text-sm font-medium hover:bg-[#17856A] transition-colors disabled:opacity-60 cursor-pointer"
-                  >
-                    {loading ? 'Creating account…' : 'Create Account'}
-                  </button>
+                  {success && (
+                    <div className="rounded-lg p-3 text-xs text-[#1D9E75] leading-relaxed" style={{ background: 'rgba(29,158,117,0.1)', border: '1px solid rgba(29,158,117,0.25)' }}>
+                      ✓ {success}
+                    </div>
+                  )}
+                  {!success && (
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-2.5 rounded-lg bg-[#1D9E75] text-white text-sm font-medium hover:bg-[#17856A] transition-colors disabled:opacity-60 cursor-pointer"
+                    >
+                      {loading ? 'Creating account…' : 'Create Account'}
+                    </button>
+                  )}
                 </form>
               )}
 

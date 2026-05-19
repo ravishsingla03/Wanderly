@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 export async function fetchTrips({ filter = 'all', search = '', limit = 6 } = {}) {
   let query = supabase
     .from('trips')
-    .select(`*, profiles(name, avatar_url)`)
+    .select(`*, profiles!trips_user_id_fkey(name, avatar_url)`)
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -27,7 +27,7 @@ export async function fetchTrips({ filter = 'all', search = '', limit = 6 } = {}
 export async function fetchTripById(id) {
   const { data, error } = await supabase
     .from('trips')
-    .select(`*, profiles(id, name, avatar_url, bio, trips_count)`)
+    .select(`*, profiles!trips_user_id_fkey(id, name, avatar_url, bio, trips_count)`)
     .eq('id', id)
     .single()
   if (error) throw error
