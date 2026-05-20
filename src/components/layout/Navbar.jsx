@@ -37,7 +37,7 @@ export default function Navbar({ onAuthOpen }) {
               <Avatar name={profile?.name || user.email} src={profile?.avatar_url} size="sm" />
             </button>
             <button
-              onClick={signOut}
+              onClick={async () => { await signOut(); navigate('/') }}
               className="text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer"
             >
               Sign out

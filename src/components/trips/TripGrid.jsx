@@ -36,7 +36,7 @@ function CTACard({ onAuthOpen }) {
   )
 }
 
-export default function TripGrid({ trips, isLoading, error, onAuthOpen }) {
+export default function TripGrid({ trips, isLoading, error, showCTA = true, onAuthOpen }) {
   if (error) {
     return (
       <div className="text-center py-12 text-white/40 text-sm">
@@ -55,14 +55,14 @@ export default function TripGrid({ trips, isLoading, error, onAuthOpen }) {
     )
   }
 
-  const showCTA = trips.length < 6
+  const hasFreeSlot = trips.length % 3 !== 0
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       {trips.map((trip, i) => (
-        <TripCard key={trip.id} trip={trip} index={i} />
+        <TripCard key={trip.id} trip={trip} index={i} onAuthOpen={onAuthOpen} />
       ))}
-      {showCTA && <CTACard onAuthOpen={onAuthOpen} />}
+      {showCTA && hasFreeSlot && <CTACard onAuthOpen={onAuthOpen} />}
     </div>
   )
 }

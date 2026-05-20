@@ -1,27 +1,76 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import FilterBar from '../components/trips/FilterBar'
 import TripGrid from '../components/trips/TripGrid'
 import StatBar from '../components/ui/StatBar'
 import useFilterStore from '../store/filterStore'
-import { fetchTrips } from '../lib/queries'
+import useAuthStore from '../store/authStore'
+import useVoteStore from '../store/voteStore'
+import { fetchTrips, fetchUserVotesForTrips } from '../lib/queries'
+
+const PAGE_SIZE = 6
 
 export default function Landing({ onAuthOpen }) {
   const { activeFilter, searchQuery, setSearchQuery } = useFilterStore()
   const [inputValue, setInputValue] = useState('')
+  const sentinelRef = useRef(null)
 
-  const { data: trips = [], isLoading, error } = useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['trips', activeFilter, searchQuery],
-    queryFn: () => fetchTrips({ filter: activeFilter, search: searchQuery, limit: 6 }),
+    queryFn: ({ pageParam }) =>
+      fetchTrips({ filter: activeFilter, search: searchQuery, limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
     retry: 1,
   })
 
+  const trips = data?.pages.flat() ?? []
+
+  const { user } = useAuthStore()
+  const { initCounts, setUserVotes } = useVoteStore()
+
+  // Seed vote counts into the store whenever new pages arrive
+  useEffect(() => {
+    if (!trips.length) return
+    initCounts(trips)
+    if (user?.id) {
+      fetchUserVotesForTrips(user.id, trips.map((t) => t.id))
+        .then(setUserVotes)
+        .catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
 
   const handleSearch = (e) => {
     e.preventDefault()
     setSearchQuery(inputValue)
   }
+
+  const onSentinel = useCallback(
+    (entries) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage()
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage],
+  )
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(onSentinel, { rootMargin: '200px' })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [onSentinel])
 
   return (
     <div className="min-h-screen" style={{ fontFamily: 'DM Sans, sans-serif' }}>
@@ -115,6 +164,23 @@ export default function Landing({ onAuthOpen }) {
           error={error}
           onAuthOpen={() => onAuthOpen?.('signup')}
         />
+
+        {/* Infinite scroll sentinel */}
+        <div ref={sentinelRef} className="h-1" />
+
+        {isFetchingNextPage && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-5">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="rounded-2xl bg-[#141414] h-80 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {!hasNextPage && trips.length > 0 && !isLoading && (
+          <p className="text-center text-white/20 text-xs mt-10 tracking-wide">
+            You've seen it all
+          </p>
+        )}
       </section>
     </div>
   )

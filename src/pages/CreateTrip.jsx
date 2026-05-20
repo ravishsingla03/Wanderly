@@ -176,7 +176,7 @@ export default function CreateTrip({ onAuthOpen }) {
 
     try {
       const newTrip = await createTrip(tripPayload)
-      await supabase.rpc('increment_trips_count', { user_id: user.id }).catch(() => {})
+      try { await supabase.rpc('increment_trips_count', { user_id: user.id }) } catch (_) {}
       navigate(`/trip/${newTrip.id}`)
     } catch (e) {
       alert('Failed to submit: ' + e.message)

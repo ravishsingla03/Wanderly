@@ -10,8 +10,19 @@ const useAuthStore = create((set) => ({
   setProfile: (profile) => set({ profile }),
 
   signOut: async () => {
-    await supabase.auth.signOut()
     set({ user: null, profile: null })
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      // Always nuke the stored token so a page refresh never restores the session
+      try {
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('sb-'))
+          .forEach((k) => localStorage.removeItem(k))
+      } catch {
+        // localStorage not available (SSR / private mode)
+      }
+    }
   },
 
   setLoading: (loading) => set({ loading }),

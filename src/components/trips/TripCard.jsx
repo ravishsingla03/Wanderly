@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Avatar from '../ui/Avatar'
 import { PRESET_GRADIENTS } from '../../lib/seedData'
+import useVoteStore from '../../store/voteStore'
+import useAuthStore from '../../store/authStore'
 
 function StarRating({ rating }) {
   return (
@@ -14,8 +16,22 @@ function StarRating({ rating }) {
   )
 }
 
-export default function TripCard({ trip, index = 0 }) {
+export default function TripCard({ trip, index = 0, onAuthOpen }) {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const { counts, userVotes, vote } = useVoteStore()
+
+  const tripCounts = counts[trip.id] ?? { up: trip.likes_count ?? 0, down: trip.dislikes_count ?? 0 }
+  const userVote = userVotes[trip.id] ?? null
+
+  const handleVote = (e, direction) => {
+    e.stopPropagation()
+    if (!user) {
+      onAuthOpen?.()
+      return
+    }
+    vote(user.id, trip.id, direction)
+  }
 
   const gradient = trip.cover_gradient || PRESET_GRADIENTS[index % PRESET_GRADIENTS.length]
 
@@ -50,6 +66,45 @@ export default function TripCard({ trip, index = 0 }) {
         className="h-28 relative flex-shrink-0"
         style={{ background: gradient }}
       >
+        {/* Vote buttons — top right */}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+          <button
+            onClick={(e) => handleVote(e, 'up')}
+            title="Helpful"
+            className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer select-none"
+            style={{
+              background: userVote === 'up' ? 'rgba(29,158,117,0.85)' : 'rgba(0,0,0,0.40)',
+              color: userVote === 'up' ? '#fff' : 'rgba(255,255,255,0.75)',
+              backdropFilter: 'blur(6px)',
+              border: userVote === 'up' ? '1px solid rgba(29,158,117,0.6)' : '1px solid rgba(255,255,255,0.15)',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+            </svg>
+            {tripCounts.up > 0 && <span>{tripCounts.up}</span>}
+          </button>
+
+          <button
+            onClick={(e) => handleVote(e, 'down')}
+            title="Not helpful"
+            className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer select-none"
+            style={{
+              background: userVote === 'down' ? 'rgba(220,60,60,0.80)' : 'rgba(0,0,0,0.40)',
+              color: userVote === 'down' ? '#fff' : 'rgba(255,255,255,0.75)',
+              backdropFilter: 'blur(6px)',
+              border: userVote === 'down' ? '1px solid rgba(220,60,60,0.5)' : '1px solid rgba(255,255,255,0.15)',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
+              <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+            </svg>
+            {tripCounts.down > 0 && <span>{tripCounts.down}</span>}
+          </button>
+        </div>
+
         <div className="absolute inset-0 flex items-end p-3 gap-2">
           {trip.total_budget && (
             <span

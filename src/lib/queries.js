@@ -1,11 +1,11 @@
 import { supabase } from './supabase'
 
-export async function fetchTrips({ filter = 'all', search = '', limit = 6 } = {}) {
+export async function fetchTrips({ filter = 'all', search = '', limit = 6, offset = 0 } = {}) {
   let query = supabase
     .from('trips')
     .select(`*, profiles!trips_user_id_fkey(name, avatar_url)`)
     .order('created_at', { ascending: false })
-    .limit(limit)
+    .range(offset, offset + limit - 1)
 
   if (filter && filter !== 'all') {
     if (filter === 'budget') {
@@ -98,6 +98,35 @@ export async function createTrip(tripData) {
     .single()
   if (error) throw error
   return data
+}
+
+export async function fetchUserVotesForTrips(userId, tripIds) {
+  if (!userId || !tripIds.length) return {}
+  const { data, error } = await supabase
+    .from('trip_votes')
+    .select('trip_id, vote')
+    .eq('user_id', userId)
+    .in('trip_id', tripIds)
+  if (error) throw error
+  const map = {}
+  data.forEach(({ trip_id, vote }) => { map[trip_id] = vote ? 'up' : 'down' })
+  return map
+}
+
+export async function castVote(userId, tripId, vote) {
+  const { error } = await supabase
+    .from('trip_votes')
+    .upsert({ user_id: userId, trip_id: tripId, vote }, { onConflict: 'trip_id,user_id' })
+  if (error) throw error
+}
+
+export async function removeVote(userId, tripId) {
+  const { error } = await supabase
+    .from('trip_votes')
+    .delete()
+    .eq('user_id', userId)
+    .eq('trip_id', tripId)
+  if (error) throw error
 }
 
 export async function updateProfile(userId, updates) {
